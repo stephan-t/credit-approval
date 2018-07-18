@@ -11,37 +11,60 @@ data <- data.orig
 # Normalize numeric attributes using min-max [0,1]
 for (i in 1:ncol(data)) {
   if (is.numeric(data[, i])) {
-    data[, i] <- (data[, i] - min(data[, i], na.rm = TRUE)) / 
-      (max(data[, i], na.rm = TRUE) - min(data[, i], na.rm = TRUE))
+    data[, i] <- round((data[, i] - min(data[, i], na.rm = TRUE)) / 
+      (max(data[, i], na.rm = TRUE) - min(data[, i], na.rm = TRUE)), 3)
   }
 }
-
-
 
 
 #### Data Integration ####
 
 # Check for redundant categorical attributes using chi-square test
-cst.df <- data.frame(var.x=character(), var.y=character(), 
+chi.df <- data.frame(var.x=character(), var.y=character(), 
                      stat=numeric(), df=numeric(), p.val=numeric(), stringsAsFactors=FALSE)
 
 # Generate combinations of categorical attribute pairs
-f <- sapply(data[0, -16], is.factor)
-cmb <- combn(colnames(data[-16])[f], 2)
+chi.cmb <- combn(colnames(data)[sapply(data[0,], is.factor)], 2)
 
-for (i in 1:ncol(cmb)) {
-  # Perform chi-square test on attribute pair
-  cst <- chisq.test(data[, cmb[1, i]], data[, cmb[2, i]])
+for (i in 1:ncol(chi.cmb)) {
+  # Perform chi-square test on each attribute pair
+  chi.test <- chisq.test(data[, chi.cmb[1, i]], data[, chi.cmb[2, i]])
   
   # Save test values to data frame
-  cst.df[i, "var.x"] <- cmb[1, i]
-  cst.df[i, "var.y"] <- cmb[2, i]
-  cst.df[i, "stat"] <- round(cst[["statistic"]], 3)
-  cst.df[i, "df"] <- cst[["parameter"]]
-  cst.df[i, "p.val"] <- round(cst[["p.value"]], 6)
+  chi.df[i, "var.x"] <- chi.cmb[1, i]
+  chi.df[i, "var.y"] <- chi.cmb[2, i]
+  chi.df[i, "stat"] <- round(chi.test[["statistic"]], 3)
+  chi.df[i, "df"] <- chi.test[["parameter"]]
+  chi.df[i, "p.val"] <- round(chi.test[["p.value"]], 3)
 }
 
-chi <- chisq.test(data$V6, data$V7)
+# Remove redundant categorical attributes that are not highly correlated to class
+data[, "V7"] <- NULL  # Correlated with V6 but also correlated to class (test with/without)
+data[, "V5"] <- NULL  # Correlated with V4
+data[, "V13"] <- NULL  # Correlated with V4
+# data[, "V10"] <- NULL  # Correlated with V9 but also correlated to class (test with/without)
+data[, "V1"] <- NULL  # Correlated with V6
+# data[, "V6"] <- NULL  # Correlated with V9 but also correlated to class (test with/without)
+
+# Remove categorical attribute uncorrelated to class
+data[, "V12"] <- NULL
+
+
+# Check for redundant numerical attributes using correlation coefficient
+cor.df <- data.frame(var.x=character(), var.y=character(), r=numeric(), stringsAsFactors=FALSE)
+
+# Generate combinations of numerical attribute pairs
+cor.cmb <- combn(colnames(data)[sapply(data[0,], is.numeric)], 2)
+
+for (i in 1:ncol(cor.cmb)) {
+  # Calculate correlation coefficient of each attribute pair
+  cor.df[i, "var.x"] <- cor.cmb[1, i]
+  cor.df[i, "var.y"] <- cor.cmb[2, i]
+  cor.df[i, "r"] <- cor(data[, cor.cmb[1, i]], data[, cor.cmb[2, i]], use = "complete.obs")
+}
+
+
+
 
 #### Data Cleaning ####
 
@@ -49,9 +72,11 @@ chi <- chisq.test(data$V6, data$V7)
 anyDuplicated(data)
 
 # Check for errors in categorical attributes
-for (i in c(1, 4, 5, 6, 7, 9, 10, 12, 13)) {
-  print(colnames(data)[i])
-  print(levels(data[, i]))
+for (i in 1:ncol(data)) {
+  if (is.factor(data[, i])) {
+    print(colnames(data)[i])
+    print(levels(data[, i]))
+  }
 }
 
 # Check for missing values
