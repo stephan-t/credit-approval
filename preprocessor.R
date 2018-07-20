@@ -76,9 +76,7 @@ for (i in 1:ncol(cor.comb)) {
 # Check for missing values
 anyNA(data)
 
-# Fill in missing values for categorical attributes using naive Bayes   # apply to dataset
-data2 <- data
-
+# Fill in missing values for categorical attributes using naive Bayes
 nb.model <- naiveBayes(V6 ~ ., data = data, na.action = "na.omit")
 data2[540, "V6"] <- predict(nb.model, data[540,])
 
@@ -86,22 +84,27 @@ data2[540, "V6"] <- predict(nb.model, data[540,])
 
 # Fill in missing values for numeric attribute V2 using regression
 r.model.v2.df <- r.model.select("V2", data) # Generate all regression models
-r.model.v2.df[r.model.v2.df$r2 == max(r.model.v2.df$r2),]  # Select largest R^2
-r.model.v2.df[r.model.v2.df$adj.r2 == max(r.model.v2.df$adj.r2),]  # Select largest adjusted R^2
-r.model.v2.df[r.model.v2.df$mse == min(r.model.v2.df$mse),]  # Select smallest MSE
-r.model.v2 <- r.model.v2.df[r.model.v2.df$mse == min(r.model.v2.df$mse), "var"] # Selected model
-r.impute("V2", r.model.v2, data)
+
+# Find model with largest R^2 and adjusted R^2, and smallest MSE
+head(r.model.v2.df[order(r.model.v2.df$r2, decreasing = TRUE),], n = 16)
+head(r.model.v2.df[order(r.model.v2.df$adj.r2, decreasing = TRUE),], n = 12)
+head(r.model.v2.df[order(r.model.v2.df$mse),])
+r.model.v2.1 <- "V3+V4+V6+V8+V9+V10+V11+V14"  # Model for NAs only in V2
+r.model.v2.2 <- "V3+V4+V6+V8+V9+V10+V11"  # Model for NAs in V2 and V14
+
+data <- r.impute("V2", r.model.v2.1, data)
+data <- r.impute("V2", r.model.v2.2, data)
 
 
 # Fill in missing values for numeric attribute V14 using regression
 r.model.v14.df <- r.model.select("V14", data)
 
 
-
 # Regression imputation
 r.impute <- function(y, x, data) {
-  model <- lm(y ~ x, data = data, na.action = "na.omit")
-  
+  model <- lm(as.formula(paste(y, " ~ ", x)), data = data, na.action = "na.omit")
+  data[is.na(data[y]), y] <- round(predict(model, data[is.na(data[y]),]), 3)
+  return(data)
 }
 
 # Multiple linear regression model selection
