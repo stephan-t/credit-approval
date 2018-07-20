@@ -1,9 +1,15 @@
 # Import packages
-library(e1071)
+library(e1071)  # naive Bayes
 
 # Import data
 data.orig <- read.csv("data/credit_approval.csv", header = FALSE, na.strings = "?")
 data <- data.orig
+
+
+#### Data Exploration ####
+
+# Generate frequency tables and summary statistics for all attributes
+summary(data)
 
 
 #### Data Transformation ####
@@ -24,29 +30,29 @@ chi.df <- data.frame(var.x=character(), var.y=character(),
                      stat=numeric(), df=numeric(), p.val=numeric(), stringsAsFactors=FALSE)
 
 # Generate combinations of categorical attribute pairs
-chi.cmb <- combn(colnames(data)[sapply(data[0,], is.factor)], 2)
+chi.comb <- combn(colnames(data)[sapply(data, is.factor)], 2)
 
-for (i in 1:ncol(chi.cmb)) {
+for (i in 1:ncol(chi.comb)) {
   # Perform chi-square test on each attribute pair
-  chi.test <- chisq.test(data[, chi.cmb[1, i]], data[, chi.cmb[2, i]])
+  chi.test <- chisq.test(data[, chi.comb[1, i]], data[, chi.comb[2, i]])
   
   # Save test values to data frame
-  chi.df[i, "var.x"] <- chi.cmb[1, i]
-  chi.df[i, "var.y"] <- chi.cmb[2, i]
+  chi.df[i, "var.x"] <- chi.comb[1, i]
+  chi.df[i, "var.y"] <- chi.comb[2, i]
   chi.df[i, "stat"] <- round(chi.test[["statistic"]], 3)
   chi.df[i, "df"] <- chi.test[["parameter"]]
   chi.df[i, "p.val"] <- round(chi.test[["p.value"]], 3)
 }
 
 # Remove redundant categorical attributes that are not highly correlated to class
-data[, "V7"] <- NULL  # Correlated with V6 but also correlated to class (test with/without)
+data[, "V7"] <- NULL  # Correlated with V6 but also correlated to class
 data[, "V5"] <- NULL  # Correlated with V4
 data[, "V13"] <- NULL  # Correlated with V4
-# data[, "V10"] <- NULL  # Correlated with V9 but also correlated to class (test with/without)
+# data[, "V10"] <- NULL  # Correlated with V9 but also correlated to class
 data[, "V1"] <- NULL  # Correlated with V6
-# data[, "V6"] <- NULL  # Correlated with V9 but also correlated to class (test with/without)
+# data[, "V6"] <- NULL  # Correlated with V9 but also correlated to class
 
-# Remove categorical attribute uncorrelated to class
+# Remove categorical attributes uncorrelated to class
 data[, "V12"] <- NULL
 
 
@@ -54,19 +60,79 @@ data[, "V12"] <- NULL
 cor.df <- data.frame(var.x=character(), var.y=character(), r=numeric(), stringsAsFactors=FALSE)
 
 # Generate combinations of numerical attribute pairs
-cor.cmb <- combn(colnames(data)[sapply(data[0,], is.numeric)], 2)
+cor.comb <- combn(colnames(data)[sapply(data, is.numeric)], 2)
 
-for (i in 1:ncol(cor.cmb)) {
-  # Calculate correlation coefficient of each attribute pair
-  cor.df[i, "var.x"] <- cor.cmb[1, i]
-  cor.df[i, "var.y"] <- cor.cmb[2, i]
-  cor.df[i, "r"] <- cor(data[, cor.cmb[1, i]], data[, cor.cmb[2, i]], use = "complete.obs")
+# Calculate correlation coefficient of each attribute pair
+for (i in 1:ncol(cor.comb)) {
+  cor.df[i, "var.x"] <- cor.comb[1, i]
+  cor.df[i, "var.y"] <- cor.comb[2, i]
+  cor.df[i, "r"] <- round(cor(data[, cor.comb[1, i]], data[, cor.comb[2, i]], 
+                              use = "complete.obs"), 3)
 }
 
 
-
-
 #### Data Cleaning ####
+
+# Check for missing values
+anyNA(data)
+
+# Fill in missing values for categorical attributes using naive Bayes   # apply to dataset
+data2 <- data
+
+nb.model <- naiveBayes(V6 ~ ., data = data, na.action = "na.omit")
+data2[540, "V6"] <- predict(nb.model, data[540,])
+
+
+
+# Fill in missing values for numeric attribute V2 using regression
+r.model.v2.df <- r.model.select("V2", data) # Generate all regression models
+r.model.v2.df[r.model.v2.df$r2 == max(r.model.v2.df$r2),]  # Select largest R^2
+r.model.v2.df[r.model.v2.df$adj.r2 == max(r.model.v2.df$adj.r2),]  # Select largest adjusted R^2
+r.model.v2.df[r.model.v2.df$mse == min(r.model.v2.df$mse),]  # Select smallest MSE
+r.model.v2 <- r.model.v2.df[r.model.v2.df$mse == min(r.model.v2.df$mse), "var"] # Selected model
+r.impute("V2", r.model.v2, data)
+
+
+# Fill in missing values for numeric attribute V14 using regression
+r.model.v14.df <- r.model.select("V14", data)
+
+
+
+# Regression imputation
+r.impute <- function(y, x, data) {
+  model <- lm(y ~ x, data = data, na.action = "na.omit")
+  
+}
+
+# Multiple linear regression model selection
+r.model.select <- function(y, data) {
+  model.df <- data.frame(var=character(), f.stat=numeric(), r2=numeric(),
+                         adj.r2=numeric(), mse=numeric(), stringsAsFactors = FALSE)
+  c <- 0
+  # Generate all regression models of different predictor lengths
+  for (i in 1:(ncol(data)-1)) {
+    # Generate all combinations of candidate predictors
+    comb <- combn(colnames(data[colnames(data) != y]), i)
+    
+    # Generate statistics for each model
+    for (j in 1:ncol(comb)) {
+      x <- comb[, j]
+      model <- lm(as.formula(paste(y, " ~ ", paste(x, collapse= "+"))),
+                         data = data, na.action = "na.omit")
+      summ <- summary(model)
+      anov <- anova(model)
+      c <- c + 1
+      model.df[c, "var"] <- paste(x, collapse= "+")
+      model.df[c, "f.stat"] <- summ[["fstatistic"]][["value"]]
+      model.df[c, "r2"] <- summ[["r.squared"]]
+      model.df[c, "adj.r2"] <- summ[["adj.r.squared"]]
+      model.df[c, "mse"] <- anov["Residuals", "Mean Sq"]
+    }
+  }
+  return(model.df)
+}
+
+
 
 # Check for duplicates
 anyDuplicated(data)
@@ -79,15 +145,11 @@ for (i in 1:ncol(data)) {
   }
 }
 
-# Check for missing values
-anyNA(data)
+# Check for outliers
+boxplot(data[sapply(data, is.numeric)])
 
-# Fill in missing values for categorical attributes using naive Bayes
-nb.model <- naiveBayes(V6 ~ ., data = data, na.action = "na.omit")
-predict(nb.model, data[540, -6])
+# Smooth outliers using bin means
 
-# Fill in missing values for numeric attributes using regression
-l.model <- lm(V2 ~ V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 
-              + V11 + V12 + V13 + V14 + V15 + V16, data = data, na.action = "na.omit")
-predict(l.model, data[93,])
-plot(l.model)
+
+#### Data Reduction ####
+
