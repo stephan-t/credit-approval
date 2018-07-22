@@ -1,9 +1,8 @@
-# Import packages
-library(e1071)  # naive Bayes
+# Import functions
+source("functions.R")
 
 # Import data
-data.orig <- read.csv("data/credit_approval.csv", header = FALSE, na.strings = "?")
-data <- data.orig
+data <- read.csv("data/credit_approval.csv", header = FALSE, na.strings = "?")
 
 
 #### Data Exploration ####
@@ -17,57 +16,10 @@ summary(data)
 # Normalize numeric attributes using min-max [0,1]
 for (i in 1:ncol(data)) {
   if (is.numeric(data[, i])) {
-    data[, i] <- round((data[, i] - min(data[, i], na.rm = TRUE)) / 
-      (max(data[, i], na.rm = TRUE) - min(data[, i], na.rm = TRUE)), 3)
+    data[, i] <- round(((data[, i] - min(data[, i], na.rm = TRUE)) / 
+      (max(data[, i], na.rm = TRUE) - min(data[, i], na.rm = TRUE))) *
+        (1.0 - 0.0) + 0.0, 3)
   }
-}
-
-
-#### Data Integration ####
-
-# Check for redundant categorical attributes using chi-square test
-chi.df <- data.frame(var.x=character(), var.y=character(), 
-                     stat=numeric(), df=numeric(), p.val=numeric(), stringsAsFactors=FALSE)
-
-# Generate combinations of categorical attribute pairs
-chi.comb <- combn(colnames(data)[sapply(data, is.factor)], 2)
-
-for (i in 1:ncol(chi.comb)) {
-  # Perform chi-square test on each attribute pair
-  chi.test <- chisq.test(data[, chi.comb[1, i]], data[, chi.comb[2, i]])
-  
-  # Save test values to data frame
-  chi.df[i, "var.x"] <- chi.comb[1, i]
-  chi.df[i, "var.y"] <- chi.comb[2, i]
-  chi.df[i, "stat"] <- round(chi.test[["statistic"]], 3)
-  chi.df[i, "df"] <- chi.test[["parameter"]]
-  chi.df[i, "p.val"] <- round(chi.test[["p.value"]], 3)
-}
-
-# Remove redundant categorical attributes that are not highly correlated to class
-data[, "V7"] <- NULL  # Correlated with V6 but also correlated to class
-data[, "V5"] <- NULL  # Correlated with V4
-data[, "V13"] <- NULL  # Correlated with V4
-# data[, "V10"] <- NULL  # Correlated with V9 but also correlated to class
-data[, "V1"] <- NULL  # Correlated with V6
-# data[, "V6"] <- NULL  # Correlated with V9 but also correlated to class
-
-# Remove categorical attributes uncorrelated to class
-data[, "V12"] <- NULL
-
-
-# Check for redundant numerical attributes using correlation coefficient
-cor.df <- data.frame(var.x=character(), var.y=character(), r=numeric(), stringsAsFactors=FALSE)
-
-# Generate combinations of numerical attribute pairs
-cor.comb <- combn(colnames(data)[sapply(data, is.numeric)], 2)
-
-# Calculate correlation coefficient of each attribute pair
-for (i in 1:ncol(cor.comb)) {
-  cor.df[i, "var.x"] <- cor.comb[1, i]
-  cor.df[i, "var.y"] <- cor.comb[2, i]
-  cor.df[i, "r"] <- round(cor(data[, cor.comb[1, i]], data[, cor.comb[2, i]], 
-                              use = "complete.obs"), 3)
 }
 
 
@@ -76,66 +28,73 @@ for (i in 1:ncol(cor.comb)) {
 # Check for missing values
 anyNA(data)
 
-# Fill in missing values for categorical attributes using naive Bayes
-nb.model <- naiveBayes(V6 ~ ., data = data, na.action = "na.omit")
-data2[540, "V6"] <- predict(nb.model, data[540,])
+# Prepare to impute missing values for categorical attributes using naive Bayes
+chi.df <- chi.test(data)  # Find correlated attributes to use in prediction
+
+# Find models with highest prediction accuracies
+nb.model.v1 <- list("V1", "V6")
+nb.model.eval(nb.model.v1[[1]], nb.model.v1[[2]], data)
+nb.model.v4 <- list("V4", "V7+V13")
+nb.model.eval(nb.model.v4[[1]], nb.model.v4[[2]], data)
+nb.model.v5 <- list("V5", "V7+V13")
+nb.model.eval(nb.model.v5[[1]], nb.model.v5[[2]], data)
+nb.model.v6 <- list("V6", "V7+V16")
+nb.model.eval(nb.model.v6[[1]], nb.model.v6[[2]], data)
+nb.model.v7 <- list("V7", "V6")
+nb.model.eval(nb.model.v7[[1]], nb.model.v7[[2]], data)
+
+# Impute missing values
+data <- nb.impute(nb.model.v1[[1]], nb.model.v1[[2]], data)
+data <- nb.impute(nb.model.v4[[1]], nb.model.v4[[2]], data)
+data <- nb.impute(nb.model.v5[[1]], nb.model.v5[[2]], data)
+data <- nb.impute(nb.model.v6[[1]], nb.model.v6[[2]], data)
+data <- nb.impute(nb.model.v7[[1]], nb.model.v7[[2]], data)
 
 
+# Prepare to impute missing values for numeric attribute V2 using regression
+time.start <- Sys.time()
+r.model.v2.df <- r.model.select("V2", data)  # Generate all regression models
+(time.end <- Sys.time() - time.start)  # ~3 mins at 4GHz
 
-# Fill in missing values for numeric attribute V2 using regression
-r.model.v2.df <- r.model.select("V2", data) # Generate all regression models
-
-# Find model with largest R^2 and adjusted R^2, and smallest MSE
-head(r.model.v2.df[order(r.model.v2.df$r2, decreasing = TRUE),], n = 16)
-head(r.model.v2.df[order(r.model.v2.df$adj.r2, decreasing = TRUE),], n = 12)
+# Find model with largest R^2 and adjusted R^2, and smallest MSE with NAs in V2 only
+head(r.model.v2.df[order(r.model.v2.df$r2, decreasing = TRUE),])
+head(r.model.v2.df[order(r.model.v2.df$adj.r2, decreasing = TRUE),])
 head(r.model.v2.df[order(r.model.v2.df$mse),])
-r.model.v2.1 <- "V3+V4+V6+V8+V9+V10+V11+V14"  # Model for NAs only in V2
-r.model.v2.2 <- "V3+V4+V6+V8+V9+V10+V11"  # Model for NAs in V2 and V14
+r.model.v2.1 <- list("V2", "V1+V3+V4+V7+V8+V9+V10+V11+V12+V14")
+r.model.eval(r.model.v2.1[[1]], r.model.v2.1[[2]], data)
 
-data <- r.impute("V2", r.model.v2.1, data)
-data <- r.impute("V2", r.model.v2.2, data)
+# Find model with largest R^2 and adjusted R^2, and smallest MSE with NAs in V2 and V14
+# excluding V5 & V13 due to collinearity
+r.model.v2.df <- r.model.v2.df[order(r.model.v2.df$r2, decreasing = TRUE),]
+head(r.model.v2.df[!grepl("(V14|V5|V13)", r.model.v2.df$var),])
+r.model.v2.df <- r.model.v2.df[order(r.model.v2.df$adj.r2, decreasing = TRUE),]
+head(r.model.v2.df[!grepl("(V14|V5|V13)", r.model.v2.df$var),])
+r.model.v2.df <- r.model.v2.df[order(r.model.v2.df$mse),]
+head(r.model.v2.df[!grepl("(V14|V5|V13)", r.model.v2.df$var),])
+r.model.v2.2 <- list("V2", "V4+V6+V7+V8+V9+V10+V11+V15")
+r.model.eval(r.model.v2.2[[1]], r.model.v2.2[[2]], data)
 
+# Impute missing values
+data <- r.impute(r.model.v2.1[[1]], r.model.v2.1[[2]], data)
+data <- r.impute(r.model.v2.2[[1]], r.model.v2.2[[2]], data)
 
-# Fill in missing values for numeric attribute V14 using regression
-r.model.v14.df <- r.model.select("V14", data)
+# Prepare to impute missing values for numeric attribute V14 using regression
+time.start <- Sys.time()
+r.model.v14.df <- r.model.select("V14", data)  # Generate all regression models
+(time.end <- Sys.time() - time.start)  # ~3 mins at 4GHz
 
+# Find model with largest R^2 and adjusted R^2, and smallest MSE with NAs in V14 only
+head(r.model.v14.df[order(r.model.v14.df$r2, decreasing = TRUE),])
+head(r.model.v14.df[order(r.model.v14.df$adj.r2, decreasing = TRUE),])
+head(r.model.v14.df[order(r.model.v14.df$mse),])
+r.model.v14 <- list("V14", "V3+V6+V7+V10+V11+V12+V13+V15+V16")
+r.model.eval(r.model.v14[[1]], r.model.v14[[2]], data)
 
-# Regression imputation
-r.impute <- function(y, x, data) {
-  model <- lm(as.formula(paste(y, " ~ ", x)), data = data, na.action = "na.omit")
-  data[is.na(data[y]), y] <- round(predict(model, data[is.na(data[y]),]), 3)
-  return(data)
-}
+# Impute missing values
+data <- r.impute(r.model.v14[[1]], r.model.v14[[2]], data)
 
-# Multiple linear regression model selection
-r.model.select <- function(y, data) {
-  model.df <- data.frame(var=character(), f.stat=numeric(), r2=numeric(),
-                         adj.r2=numeric(), mse=numeric(), stringsAsFactors = FALSE)
-  c <- 0
-  # Generate all regression models of different predictor lengths
-  for (i in 1:(ncol(data)-1)) {
-    # Generate all combinations of candidate predictors
-    comb <- combn(colnames(data[colnames(data) != y]), i)
-    
-    # Generate statistics for each model
-    for (j in 1:ncol(comb)) {
-      x <- comb[, j]
-      model <- lm(as.formula(paste(y, " ~ ", paste(x, collapse= "+"))),
-                         data = data, na.action = "na.omit")
-      summ <- summary(model)
-      anov <- anova(model)
-      c <- c + 1
-      model.df[c, "var"] <- paste(x, collapse= "+")
-      model.df[c, "f.stat"] <- summ[["fstatistic"]][["value"]]
-      model.df[c, "r2"] <- summ[["r.squared"]]
-      model.df[c, "adj.r2"] <- summ[["adj.r.squared"]]
-      model.df[c, "mse"] <- anov["Residuals", "Mean Sq"]
-    }
-  }
-  return(model.df)
-}
-
-
+# Check for missing values
+anyNA(data)
 
 # Check for duplicates
 anyDuplicated(data)
@@ -152,6 +111,35 @@ for (i in 1:ncol(data)) {
 boxplot(data[sapply(data, is.numeric)])
 
 # Smooth outliers using bin means
+
+
+#### Data Integration ####
+
+# Check for redundant categorical attributes using chi-square test
+chi.df <- chi.test(data)
+
+# Remove redundant categorical attributes that are not highly correlated to class
+data[, "V7"] <- NULL  # Correlated with V6 but also correlated to class
+data[, "V5"] <- NULL  # Correlated with V4 perfectly
+data[, "V13"] <- NULL  # Correlated with V4
+# data[, "V10"] <- NULL  # Correlated with V9 but also correlated to class
+data[, "V1"] <- NULL  # Correlated with V6
+# data[, "V6"] <- NULL  # Correlated with V9 but also correlated to class
+data[, "V12"] <- NULL  # Uncorrelated to class
+
+# Check for redundant numerical attributes using correlation coefficient
+cor.df <- data.frame(var.x=character(), var.y=character(), r=numeric(), stringsAsFactors=FALSE)
+
+# Generate combinations of numerical attribute pairs
+cor.comb <- combn(colnames(data)[sapply(data, is.numeric)], 2)
+
+# Calculate correlation coefficient of each attribute pair
+for (i in 1:ncol(cor.comb)) {
+  cor.df[i, "var.x"] <- cor.comb[1, i]
+  cor.df[i, "var.y"] <- cor.comb[2, i]
+  cor.df[i, "r"] <- round(cor(data[, cor.comb[1, i]], data[, cor.comb[2, i]], 
+                              use = "complete.obs"), 3)
+}
 
 
 #### Data Reduction ####
