@@ -102,15 +102,23 @@ anyDuplicated(data)
 # Check for errors in categorical attributes
 for (i in 1:ncol(data)) {
   if (is.factor(data[, i])) {
-    print(colnames(data)[i])
-    print(levels(data[, i]))
+    cat(colnames(data)[i], levels(data[, i]), "\n")
   }
 }
 
 # Check for outliers
 boxplot(data[sapply(data, is.numeric)])
+outlier <- outlier.detect(data)
 
-# Smooth outliers using bin means
+# Delete major outliers
+outlier.del <- c()
+for (i in names(outlier)) {
+  if (length(outlier[[i]][["maj.up"]]) != 0) {
+    outlier.del <- append(outlier.del, as.numeric(outlier[[i]][["maj.up"]]))
+  }
+}
+data <- data[-c(sort(unique(outlier.del))),]
+rownames(data) <- 1:nrow(data)
 
 
 #### Data Integration ####

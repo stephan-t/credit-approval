@@ -100,6 +100,40 @@ r.impute <- function(y, x, data) {
 }
 
 
+# Outlier detection
+outlier.detect <- function(data) {
+  outliers <- list()
+  
+  for (i in 1:ncol(data)) {
+    if (is.numeric(data[, i])) {
+      var <- colnames(data)[i]
+      
+      # Calculate minor outliers
+      fence.min.low <- quantile(data[, i])[2] - (IQR(data[, i]) * 1.5)
+      fence.min.up <- quantile(data[, i])[4] + (IQR(data[, i]) * 1.5)
+      out.min.low <- data[data[, i] < fence.min.low,]
+      out.min.up <- data[data[, i] > fence.min.up,]
+      
+      # Calculate major outliers
+      fence.maj.low <- quantile(data[, i])[2] - (IQR(data[, i]) * 3)
+      fence.maj.up <- quantile(data[, i])[4] + (IQR(data[, i]) * 3)
+      out.maj.low <- data[data[, i] < fence.maj.low,]
+      out.maj.up <- data[data[, i] > fence.maj.up,]
+      
+      # Store indexes of outliers 
+      outliers[[var]][["min.low"]] <- rownames(out.min.low)
+      outliers[[var]][["min.up"]] <- rownames(out.min.up)
+      outliers[[var]][["maj.low"]] <- rownames(out.maj.low)
+      outliers[[var]][["maj.up"]] <- rownames(out.maj.up)
+      
+      # Print results
+      cat(var, nrow(out.min.low), nrow(out.min.up), nrow(out.maj.low), nrow(out.maj.up), "\n")
+    }
+  }
+  return(outliers)
+}
+
+
 #### Data Integration ####
 
 # Chi-square test for categorical attributes
