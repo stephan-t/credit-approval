@@ -6,7 +6,7 @@ library(e1071)  # naive Bayes
 
 # Naive Bayes model evaluation
 nb.model.eval <- function(y, x, data) {
-  # Create train/test data of complete cases
+  # Split data for training and testing using complete cases
   data <- na.omit(data)
   set.seed(10)
   idx <- sample(1:nrow(data), floor(nrow(data) *.7))
@@ -67,7 +67,7 @@ r.model.select <- function(y, data) {
 
 # Multiple linear regression model evaluation
 r.model.eval <- function(y, x, data) {
-  # Create train/test data of complete cases
+  # Split data for training and testing using complete cases
   data <- na.omit(data)
   set.seed(50)
   idx <- sample(1:nrow(data), floor(nrow(data) *.7))
@@ -109,14 +109,14 @@ outlier.detect <- function(data) {
       var <- colnames(data)[i]
       
       # Calculate minor outliers
-      fence.min.low <- quantile(data[, i])[2] - (IQR(data[, i]) * 1.5)
-      fence.min.up <- quantile(data[, i])[4] + (IQR(data[, i]) * 1.5)
+      fence.min.low <- quantile(data[, i], na.rm = TRUE)[2] - (IQR(data[, i], na.rm = TRUE) * 1.5)
+      fence.min.up <- quantile(data[, i], na.rm = TRUE)[4] + (IQR(data[, i], na.rm = TRUE) * 1.5)
       out.min.low <- data[data[, i] < fence.min.low,]
       out.min.up <- data[data[, i] > fence.min.up,]
       
       # Calculate major outliers
-      fence.maj.low <- quantile(data[, i])[2] - (IQR(data[, i]) * 3)
-      fence.maj.up <- quantile(data[, i])[4] + (IQR(data[, i]) * 3)
+      fence.maj.low <- quantile(data[, i], na.rm = TRUE)[2] - (IQR(data[, i], na.rm = TRUE) * 3)
+      fence.maj.up <- quantile(data[, i], na.rm = TRUE)[4] + (IQR(data[, i], na.rm = TRUE) * 3)
       out.maj.low <- data[data[, i] < fence.maj.low,]
       out.maj.up <- data[data[, i] > fence.maj.up,]
       
@@ -134,7 +134,7 @@ outlier.detect <- function(data) {
 }
 
 
-#### Data Integration ####
+#### Data Reduction ####
 
 # Chi-square test for categorical attributes
 chi.test <- function(data) {
@@ -153,7 +153,7 @@ chi.test <- function(data) {
     df[i, "var.y"] <- comb[2, i]
     df[i, "stat"] <- round(test[["statistic"]], 3)
     df[i, "df"] <- test[["parameter"]]
-    df[i, "p.val"] <- round(test[["p.value"]], 3)
+    df[i, "p.val"] <- test[["p.value"]]
   }
   return(df)
 }
