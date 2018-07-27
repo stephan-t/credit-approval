@@ -7,6 +7,9 @@ data <- read.csv("data/credit_approval.csv", header = FALSE, na.strings = "?")
 
 #### Data Exploration ####
 
+# Check first few records of data set
+head(data)
+
 # Generate frequency tables and summary statistics for all attributes
 summary(data)
 
@@ -29,14 +32,14 @@ for (i in 1:ncol(data)) {
 anyNA(data)
 
 # Prepare to impute missing values for categorical attributes using naive Bayes
-chi.df <- chi.test(data)  # Find correlated attributes to use in prediction
+(chi.df <- chi.test(data))  # Find correlated attributes to use in prediction
 
 # Find models with highest prediction accuracies
 nb.model.v1 <- list("V1", "V6")
 nb.model.eval(nb.model.v1[[1]], nb.model.v1[[2]], data)
-nb.model.v4 <- list("V4", "V7+V13")
+nb.model.v4 <- list("V4", "V5")
 nb.model.eval(nb.model.v4[[1]], nb.model.v4[[2]], data)
-nb.model.v5 <- list("V5", "V7+V13")
+nb.model.v5 <- list("V5", "V4")
 nb.model.eval(nb.model.v5[[1]], nb.model.v5[[2]], data)
 nb.model.v6 <- list("V6", "V7+V16")
 nb.model.eval(nb.model.v6[[1]], nb.model.v6[[2]], data)
@@ -64,7 +67,7 @@ r.model.v2.1 <- list("V2", "V1+V3+V4+V7+V8+V9+V10+V11+V12+V14")
 r.model.eval(r.model.v2.1[[1]], r.model.v2.1[[2]], data)
 
 # Find model with largest R^2 and adjusted R^2, and smallest MSE with NAs in V2 and V14
-# excluding V5 & V13 due to collinearity
+# excluding V5 & V13 due to multicollinearity
 r.model.v2.df <- r.model.v2.df[order(r.model.v2.df$r2, decreasing = TRUE),]
 head(r.model.v2.df[!grepl("(V14|V5|V13)", r.model.v2.df$var),])
 r.model.v2.df <- r.model.v2.df[order(r.model.v2.df$adj.r2, decreasing = TRUE),]
@@ -119,21 +122,22 @@ for (i in names(outlier)) {
 }
 data <- data[-c(sort(unique(outlier.del))),]
 rownames(data) <- 1:nrow(data)
+boxplot(data[sapply(data, is.numeric)])
 
 
-#### Data Integration ####
+#### Data Reduction ####
 
 # Check for redundant categorical attributes using chi-square test
-chi.df <- chi.test(data)
+(chi.df <- chi.test(data))
 
 # Remove redundant categorical attributes that are not highly correlated to class
-data[, "V7"] <- NULL  # Correlated with V6 but also correlated to class
-data[, "V5"] <- NULL  # Correlated with V4 perfectly
+data[, "V7"] <- NULL  # Correlated with V6
+data[, "V5"] <- NULL  # Correlated with V4
 data[, "V13"] <- NULL  # Correlated with V4
-# data[, "V10"] <- NULL  # Correlated with V9 but also correlated to class
 data[, "V1"] <- NULL  # Correlated with V6
-# data[, "V6"] <- NULL  # Correlated with V9 but also correlated to class
-data[, "V12"] <- NULL  # Uncorrelated to class
+
+# Remove irrelevant categorical attributes that are uncorrelated to class
+data[, "V12"] <- NULL
 
 # Check for redundant numerical attributes using correlation coefficient
 cor.df <- data.frame(var.x=character(), var.y=character(), r=numeric(), stringsAsFactors=FALSE)
@@ -148,7 +152,4 @@ for (i in 1:ncol(cor.comb)) {
   cor.df[i, "r"] <- round(cor(data[, cor.comb[1, i]], data[, cor.comb[2, i]], 
                               use = "complete.obs"), 3)
 }
-
-
-#### Data Reduction ####
-
+cor.df
