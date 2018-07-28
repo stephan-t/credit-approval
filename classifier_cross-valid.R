@@ -11,7 +11,10 @@ k <- 10  # Number of folds
 fold <- round(nrow(data.rand) / k, 0)  # Size of fold
 idx.head <- 0
 idx.tail <- fold
-dt.cor <- 0
+dt.tp <- 0
+dt.tn <- 0
+dt.fp <- 0
+dt.fn <- 0
 
 # Set fold in iteration i as test set and remaining folds as training set
 for (i in 1:k) {
@@ -41,11 +44,23 @@ for (i in 1:k) {
   dt.cm <- table(dt.pred.df$actual, dt.pred.df$predict, dnn=c("Actual","Predicted"))
   
   # Count correct classifications
-  dt.cor <- dt.cor + sum(diag(dt.cm))
+  dt.tp <- dt.tp + dt.cm[2,2]  # True positive
+  dt.tn <- dt.tn + dt.cm[1,1]  # True negative
+  
+  # Count incorrect classifications
+  dt.fp <- dt.fp + dt.cm[1,2]  # False positive
+  dt.fn <- dt.fn + dt.cm[2,1]  # False negative
   
   # Set current fold's tail as next fold's head 
   idx.head <- idx.tail
 }
 
+# Create confusion matrix of all iterations
+matrix(c(dt.tp, dt.fp, dt.fn, dt.tn), ncol = 2, 
+       dimnames = list(Actual = c("+", "-"), Predicted = c("+", "-")))
+
 # Calculate accuracy
-(dt.accu <- dt.cor / nrow(data))
+(dt.accu <- (dt.tp + dt.tn) / nrow(data))
+
+
+cat(dt.tp, dt.tn, dt.fp, dt.fn, dt.accu, sep='\t')
