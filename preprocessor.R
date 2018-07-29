@@ -160,3 +160,7 @@ for (i in 1:ncol(cor.comb)) {
                               use = "complete.obs"), 3)
 }
 cor.df
+
+
+# Export data
+write.csv(data, "data/credit_approval_processed.csv", row.names = FALSE)
