@@ -6,7 +6,7 @@ library(rpart)
 
 # Train and test model using k-fold cross validation
 set.seed(50)
-data.rand <- data[sample(1:nrow(data)), ]  # Randomize data set
+data.rand <- data[sample(1:nrow(data)),]  # Randomize data set
 k <- 10  # Number of folds
 fold <- round(nrow(data.rand) / k, 0)  # Size of fold
 idx.head <- 0
@@ -27,10 +27,10 @@ for (i in 1:k) {
   data.train <- data.rand[-idx,]
   
   # Build model
-  dt.model <- rpart(V16 ~ ., data = data.train, method="class", parms = list(split="information"))
+  dt.model <- rpart(V16 ~ ., data = data.train, method = "class", parms = list(split = "gini"))
     
   # Test model
-  dt.pred <- predict(dt.model, data.test[, names(data.test) != "V16"], type="class")
+  dt.pred <- predict(dt.model, data.test[, names(data.test) != "V16"], type = "class")
 
   
   #### Evaluation ####
@@ -41,26 +41,46 @@ for (i in 1:k) {
   names(dt.pred.df)[names(dt.pred.df) == "V16"] <- "actual"
   
   # Create confusion matrix
-  dt.cm <- table(dt.pred.df$actual, dt.pred.df$predict, dnn=c("Actual","Predicted"))
+  dt.cm <- table(dt.pred.df$actual, dt.pred.df$predict, dnn = c("Actual", "Predicted"))
   
   # Count correct classifications
-  dt.tp <- dt.tp + dt.cm[2,2]  # True positive
-  dt.tn <- dt.tn + dt.cm[1,1]  # True negative
+  dt.tp <- dt.tp + dt.cm[2, 2]  # True positive
+  dt.tn <- dt.tn + dt.cm[1, 1]  # True negative
   
   # Count incorrect classifications
-  dt.fp <- dt.fp + dt.cm[1,2]  # False positive
-  dt.fn <- dt.fn + dt.cm[2,1]  # False negative
+  dt.fp <- dt.fp + dt.cm[1, 2]  # False positive
+  dt.fn <- dt.fn + dt.cm[2, 1]  # False negative
   
   # Set current fold's tail as next fold's head 
   idx.head <- idx.tail
 }
 
 # Create confusion matrix of all iterations
-matrix(c(dt.tp, dt.fp, dt.fn, dt.tn), ncol = 2, 
-       dimnames = list(Actual = c("+", "-"), Predicted = c("+", "-")))
+dt.cm <- matrix(c(dt.tp, dt.fp, (dt.tp + dt.fp), 
+                  dt.fn, dt.tn, (dt.fn + dt.tn), 
+                  (dt.tp + dt.fn), (dt.fp + dt.tn), (dt.tp + dt.fn + dt.fp + dt.tn)), ncol = 3, 
+                dimnames = list(Actual = c("+", "-", "Total"), Predicted = c("+", "-", "Total")))
 
 # Calculate accuracy
-(dt.accu <- (dt.tp + dt.tn) / nrow(data))
+dt.accu <- (dt.tp + dt.tn) / nrow(data)
+
+# Calculate precision
+dt.prec <- dt.tp / (dt.tp + dt.fp)
+
+# Calculate recall
+dt.recall <- dt.tp / (dt.tp + dt.fn)
+
+# Calculate F-score
+dt.f <- (2 * dt.prec * dt.recall) / (dt.prec + dt.recall)
+
+# Print evaluation metrics
+cat("Confusion Matrix:", "\n")
+print(dt.cm)
+cat("Accuracy:", "\t", dt.accu, "\n")
+cat("Precision:", "\t", dt.prec, "\n")
+cat("Recall:", "\t", dt.recall, "\n")
+cat("F-Score:", "\t", dt.f, "\n")
 
 
-cat(dt.tp, dt.tn, dt.fp, dt.fn, dt.accu, sep='\t')
+# Build final model
+dt.model <- rpart(V16 ~ ., data = data, method = "class", parms = list(split = "gini"))
