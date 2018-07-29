@@ -13,6 +13,13 @@ head(data)
 # Generate frequency tables and summary statistics for all attributes
 summary(data)
 
+# Check data distributions of numeric attributes
+for (i in 1:ncol(data)) {
+  if (is.numeric(data[, i])) {
+    hist(data[, i], main = paste("Histogram of ", names(data)[i]), xlab = names(data)[i])
+  }
+}
+
 
 #### Data Transformation ####
 
