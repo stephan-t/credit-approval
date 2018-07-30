@@ -1,6 +1,6 @@
 # Import packages
 library(rpart)
-
+library(rpart.plot)
 
 #### Classification ####
 
@@ -27,7 +27,9 @@ for (i in 1:k) {
   data.train <- data.rand[-idx,]
   
   # Build model
-  dt.model <- rpart(V16 ~ ., data = data.train, method = "class", parms = list(split = "gini"))
+  dt.ctrl <- rpart.control(cp = 0.016, minsplit = 60)
+  dt.model <- rpart(V16 ~ ., data = data.train, method = "class", 
+                    parms = list(split = "gini"), control = dt.ctrl)
     
   # Test model
   dt.pred <- predict(dt.model, data.test[, names(data.test) != "V16"], type = "class")
@@ -83,4 +85,6 @@ cat("F-Score:", "\t", dt.f, "\n")
 
 
 # Build final model
-dt.model <- rpart(V16 ~ ., data = data, method = "class", parms = list(split = "gini"))
+dt.model <- rpart(V16 ~ ., data = data, method = "class",
+                  parms = list(split = "gini"), control = dt.ctrl)
+rpart.plot(dt.model)
