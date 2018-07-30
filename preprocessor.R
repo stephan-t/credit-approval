@@ -120,16 +120,20 @@ for (i in 1:ncol(data)) {
 boxplot(data[sapply(data, is.numeric)])
 outlier <- outlier.detect(data)
 
-# Delete major outliers
-outlier.del <- c()
-for (i in names(outlier)) {
-  if (length(outlier[[i]][["maj.up"]]) != 0) {
-    outlier.del <- append(outlier.del, as.numeric(outlier[[i]][["maj.up"]]))
-  }
-}
-data <- data[-c(sort(unique(outlier.del))),]
-rownames(data) <- 1:nrow(data)
-boxplot(data[sapply(data, is.numeric)])
+# Delete outliers
+# outlier.del <- c()
+# for (i in names(outlier)) {
+#   # Major outliers
+#   if (length(outlier[[i]][["maj.up"]]) != 0) {
+#     outlier.del <- append(outlier.del, as.numeric(outlier[[i]][["maj.up"]]))
+#   }
+#   # Minor outliers
+#   if (length(outlier[[i]][["min.up"]]) != 0) {
+#     outlier.del <- append(outlier.del, as.numeric(outlier[[i]][["min.up"]]))
+#   }
+# }
+# data <- data[-c(sort(unique(outlier.del))),]
+# rownames(data) <- 1:nrow(data)
 
 
 #### Data Reduction ####
