@@ -78,10 +78,10 @@ dt.f <- (2 * dt.prec * dt.recall) / (dt.prec + dt.recall)
 # Print evaluation metrics
 cat("Confusion Matrix:", "\n")
 print(dt.cm)
-cat("Accuracy:", "\t", dt.accu, "\n")
-cat("Precision:", "\t", dt.prec, "\n")
-cat("Recall:", "\t", dt.recall, "\n")
-cat("F-Score:", "\t", dt.f, "\n")
+cat("Accuracy:", "\t", round(dt.accu, 3), "\n")
+cat("Precision:", "\t", round(dt.prec, 3), "\n")
+cat("Recall:", "\t", round(dt.recall, 3), "\n")
+cat("F-Score:", "\t", round(dt.f, 3), "\n")
 
 
 # Build final model
