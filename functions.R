@@ -133,6 +133,28 @@ outlier.detect <- function(data) {
 }
 
 
+# Outlier deletion
+outlier.delete <- function(outlier, data, major = TRUE, minor = TRUE) {
+  idx <- c()
+  for (i in names(outlier)) {
+    # Major outliers
+    if (major & length(outlier[[i]][["maj.up"]]) != 0) {
+      idx <- append(idx, as.numeric(outlier[[i]][["maj.up"]]))
+    }
+    
+    # Minor outliers
+    if (minor & length(outlier[[i]][["min.up"]]) != 0) {
+      idx <- append(idx, as.numeric(outlier[[i]][["min.up"]]))
+    }
+  }
+  
+  # Delete outliers
+  data <- data[-c(sort(unique(idx))),]
+  rownames(data) <- 1:nrow(data)
+  return(data)
+}
+
+
 #### Data Reduction ####
 
 # Chi-square test for categorical attributes
