@@ -158,6 +158,23 @@ chi.test <- function(data) {
 }
 
 
+# Correlation coefficient for numerical attributes
+cor.co <- function(data) {
+  df <- data.frame(var.x=character(), var.y=character(), r=numeric(), stringsAsFactors=FALSE)
+  
+  # Generate combinations of numerical attribute pairs
+  comb <- combn(colnames(data)[sapply(data, is.numeric)], 2)
+  
+  # Calculate correlation coefficient of each attribute pair
+  for (i in 1:ncol(comb)) {
+    df[i, "var.x"] <- comb[1, i]
+    df[i, "var.y"] <- comb[2, i]
+    df[i, "r"] <- round(cor(data[, comb[1, i]], data[, comb[2, i]], use = "complete.obs"), 3)
+  }
+  return(df)  
+}
+
+
 #### Data Transformation ####
 
 # Normalize numeric attributes using min-max

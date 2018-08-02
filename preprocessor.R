@@ -147,22 +147,11 @@ data[, "V1"] <- NULL  # Correlated with V6
 data[, "V12"] <- NULL
 
 # Check for redundant numerical attributes using correlation coefficient
-cor.df <- data.frame(var.x=character(), var.y=character(), r=numeric(), stringsAsFactors=FALSE)
-
-# Generate combinations of numerical attribute pairs
-cor.comb <- combn(colnames(data)[sapply(data, is.numeric)], 2)
-
-# Calculate correlation coefficient of each attribute pair
-for (i in 1:ncol(cor.comb)) {
-  cor.df[i, "var.x"] <- cor.comb[1, i]
-  cor.df[i, "var.y"] <- cor.comb[2, i]
-  cor.df[i, "r"] <- round(cor(data[, cor.comb[1, i]], data[, cor.comb[2, i]], 
-                              use = "complete.obs"), 3)
-}
-cor.df
+(cor.df <- cor.co(data))
 
 # Remove redundant numerical attributes
 data[, colnames(data) %in% c("V2", "V3", "V11")] <- NULL  # Correlated with V8
+
 
 # Export data
 write.csv(data, "data/credit_approval_processed.csv", row.names = FALSE)
