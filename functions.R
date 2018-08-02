@@ -25,6 +25,7 @@ nb.model.eval <- function(y, x, data) {
   return(paste("Accuracy:", accu))
 }
 
+
 # Naive Bayes imputation
 nb.impute <- function(y, x, data) {
   # Build model
@@ -82,8 +83,6 @@ r.model.eval <- function(y, x, data) {
   
   # Evaluate model
   eval.df <- data.frame(actual=data.test[, y], predict=pred)
-  plot(eval.df, main=paste(y, " ~ ", x), xlim=c(0,1), ylim=c(0,1))
-  abline(a = 0, b = 1)
   mse <- mean((eval.df$actual - eval.df$predict)^2)
   return(paste("MSE:", mse))
 }
@@ -156,4 +155,40 @@ chi.test <- function(data) {
     df[i, "p.val"] <- test[["p.value"]]
   }
   return(df)
+}
+
+
+#### Data Transformation ####
+
+# Normalize numeric attributes using min-max
+norm.minmax <- function(data, new.min, new.max) {
+  for (i in 1:ncol(data)) {
+    if (is.numeric(data[, i])) {
+      data[, i] <- round(((data[, i] - min(data[, i], na.rm = TRUE)) /
+        (max(data[, i], na.rm = TRUE) - min(data[, i], na.rm = TRUE))) *
+          (new.max - new.min) + new.min, 3)
+    }
+  }
+  return(data)
+}
+ 
+ 
+# Normalize numeric attributes using z-score
+norm.zscore <- function(data, mad = FALSE) {
+  for (i in 1:ncol(data)) {
+    if (is.numeric(data[, i])) {
+      if (mad == TRUE) {
+        # Calculate using mean absolute deviation
+        data[, i] <- round(((data[, i] - mean(data[, i], na.rm = TRUE)) / 
+                              (sum(abs(data[, i] - mean(data[, i], na.rm = TRUE)) 
+                               / length(na.omit(data[, i])), na.rm = TRUE))), 3)
+      } else {
+        # Calculate using population standard deviation
+        data[, i] <- round(((data[, i] - mean(data[, i], na.rm = TRUE)) / 
+                              (sqrt((length(na.omit(data[, i])) - 1) / length(na.omit(data[, i]))) * 
+                                 sd(data[, i], na.rm = TRUE))), 3)
+      }
+    }
+  }
+  return(data)
 }

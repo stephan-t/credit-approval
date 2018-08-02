@@ -23,14 +23,10 @@ for (i in 1:ncol(data)) {
 
 #### Data Transformation ####
 
-# Normalize numeric attributes using min-max [0,1]
-for (i in 1:ncol(data)) {
-  if (is.numeric(data[, i])) {
-    data[, i] <- round(((data[, i] - min(data[, i], na.rm = TRUE)) / 
-      (max(data[, i], na.rm = TRUE) - min(data[, i], na.rm = TRUE))) *
-        (1.0 - 0.0) + 0.0, 3)
-  }
-}
+# Normalize numeric attributes
+data <- norm.minmax(data, 0, 1)
+# data <- norm.zscore(data)
+# data <- norm.zscore(data, mad = TRUE)
 
 
 #### Data Cleaning ####
@@ -165,6 +161,8 @@ for (i in 1:ncol(cor.comb)) {
 }
 cor.df
 
+# Remove redundant numerical attributes
+data[, colnames(data) %in% c("V2", "V3", "V11")] <- NULL  # Correlated with V8
 
 # Export data
 write.csv(data, "data/credit_approval_processed.csv", row.names = FALSE)
